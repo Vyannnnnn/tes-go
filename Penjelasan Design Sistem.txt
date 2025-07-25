@@ -1,0 +1,35 @@
+Penjelasan Rancangan Saat Ada Jaringan Internet
+•Check-in:
+  1.User tap kartu di gate terminal A.
+  2.Gate membaca ID kartu, saldo, dan waktu.
+  3.Gate mengirim data check-in ke server (real-time).
+  4.Server menyimpan status check-in, lokasi, dan waktu.
+  5.Gate mengizinkan masuk jika saldo cukup.
+•Check-out:
+  1.User tap kartu di gate terminal B.
+  2.Gate membaca ID kartu dan waktu.
+  3.Gate mengirim data check-out ke server.
+  4.Server menghitung tarif berdasarkan rute (A ke B), mengurangi saldo kartu di server, dan menyimpan transaksi.
+  5.Gate mengupdate saldo di kartu (jika kartu menyimpan saldo fisik) dan mengizinkan keluar.
+•Keunggulan Online:
+ o Data selalu sinkron antar gate.
+ o Saldo dan histori transaksi selalu up-to-date.
+ o Monitoring dan pelaporan real-time.
+_____________________________________________________________________________________________________________________________
+
+Solusi Saat Tidak Ada Jaringan Internet (Offline Mode)
+•Check-in/Check-out:
+ 1.	Gate tetap membaca kartu dan menyimpan data transaksi lokal (di memori/penyimpanan gate).
+ 2.	Saldo dan histori transaksi di-update langsung pada chip kartu (kartu harus mampu menyimpan saldo & histori minimal).
+ 3.	Gate melakukan validasi saldo dan status check-in/check-out berdasarkan data di kartu.
+ 4.	Data transaksi (log) di gate akan di-sync ke server saat jaringan kembali normal.
+
+•Keunggulan Offline:
+ o Sistem tetap berjalan 24 jam tanpa tergantung koneksi.
+ o Tidak ada antrian/penolakan akibat gangguan jaringan.
+ o Data tetap aman di kartu dan gate, lalu disinkronkan ke server saat online.
+
+•Catatan:
+ o Kartu harus memiliki chip yang mampu menyimpan saldo dan histori minimal 1-2 transaksi terakhir.
+ o Gate harus punya mekanisme anti-duplikasi/anti-fraud (misal: signature, hash, atau enkripsi pada data kartu).
+ o Saat online, server melakukan rekonsiliasi data dari gate dan kartu.
