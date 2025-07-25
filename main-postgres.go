@@ -5,11 +5,12 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strconv"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
-	_ "github.com/mattn/go-sqlite3"
+	_ "github.com/lib/pq"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -69,13 +70,13 @@ type Claims struct {
 func initDB() {
 	var err error
 	
-	// SQLite database file
-	dbPath := "./tesgo.db"
-	if dbFile := os.Getenv("DB_FILE"); dbFile != "" {
-		dbPath = dbFile
+	// Database connection string - adjust according to your PostgreSQL setup
+	connStr := "user=postgres dbname=tesgo sslmode=disable password=password host=localhost"
+	if dbURL := os.Getenv("DATABASE_URL"); dbURL != "" {
+		connStr = dbURL
 	}
 	
-	db, err = sql.Open("sqlite3", dbPath)
+	db, err = sql.Open("postgres", connStr)
 	if err != nil {
 		log.Fatal("Failed to connect to database:", err)
 	}
@@ -84,7 +85,7 @@ func initDB() {
 		log.Fatal("Failed to ping database:", err)
 	}
 
-	log.Println("Connected to SQLite database successfully:", dbPath)
+	log.Println("Connected to database successfully")
 	
 	// Create tables if they don't exist
 	createTables()
@@ -94,68 +95,68 @@ func initDB() {
 func createTables() {
 	queries := []string{
 		`CREATE TABLE IF NOT EXISTS users (
-			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			id SERIAL PRIMARY KEY,
 			card_number VARCHAR(255) UNIQUE NOT NULL,
 			name VARCHAR(255) NOT NULL,
 			password VARCHAR(255) NOT NULL,
-			created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-			updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+			updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 		)`,
 		`CREATE TABLE IF NOT EXISTS terminals (
-			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			id SERIAL PRIMARY KEY,
 			name VARCHAR(255) NOT NULL,
 			code VARCHAR(255) UNIQUE NOT NULL,
 			location TEXT,
-			created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 		)`,
 		`CREATE TABLE IF NOT EXISTS prepaid_cards (
-			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			id SERIAL PRIMARY KEY,
 			user_id INTEGER NOT NULL REFERENCES users(id),
 			balance DECIMAL(10,2) DEFAULT 0,
-			last_sync_at DATETIME,
+			last_sync_at TIMESTAMP,
 			status VARCHAR(50) DEFAULT 'active',
-			created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-			updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+			updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 		)`,
 		`CREATE TABLE IF NOT EXISTS gates (
-			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			id SERIAL PRIMARY KEY,
 			terminal_id INTEGER NOT NULL REFERENCES terminals(id),
 			gate_code VARCHAR(255) NOT NULL,
-			is_active BOOLEAN DEFAULT 1,
-			last_online DATETIME,
-			created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+			is_active BOOLEAN DEFAULT true,
+			last_online TIMESTAMP,
+			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 		)`,
 		`CREATE TABLE IF NOT EXISTS transactions (
-			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			id SERIAL PRIMARY KEY,
 			card_id INTEGER NOT NULL REFERENCES prepaid_cards(id),
 			user_id INTEGER NOT NULL REFERENCES users(id),
 			checkin_terminal_id INTEGER REFERENCES terminals(id),
 			checkout_terminal_id INTEGER REFERENCES terminals(id),
-			checkin_time DATETIME,
-			checkout_time DATETIME,
+			checkin_time TIMESTAMP,
+			checkout_time TIMESTAMP,
 			fare DECIMAL(10,2),
 			status VARCHAR(50),
 			sync_status VARCHAR(50),
-			created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 		)`,
 		`CREATE TABLE IF NOT EXISTS fares (
-			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			id SERIAL PRIMARY KEY,
 			from_terminal_id INTEGER NOT NULL REFERENCES terminals(id),
 			to_terminal_id INTEGER NOT NULL REFERENCES terminals(id),
 			fare_amount DECIMAL(10,2) NOT NULL,
 			effective_from DATE NOT NULL,
 			effective_to DATE,
-			created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 		)`,
 		`CREATE TABLE IF NOT EXISTS transaction_logs (
-			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			id SERIAL PRIMARY KEY,
 			gate_id INTEGER NOT NULL REFERENCES gates(id),
 			card_id INTEGER NOT NULL REFERENCES prepaid_cards(id),
-			log_time DATETIME DEFAULT CURRENT_TIMESTAMP,
+			log_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 			event_type VARCHAR(100) NOT NULL,
 			raw_data TEXT,
-			is_synced BOOLEAN DEFAULT 0,
-			created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+			is_synced BOOLEAN DEFAULT false,
+			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 		)`,
 	}
 
@@ -173,7 +174,7 @@ func createTables() {
 func insertSampleData() {
 	// Check if sample user exists
 	var count int
-	err := db.QueryRow("SELECT COUNT(*) FROM users WHERE card_number = ?", "1234567890").Scan(&count)
+	err := db.QueryRow("SELECT COUNT(*) FROM users WHERE card_number = $1", "1234567890").Scan(&count)
 	if err != nil {
 		log.Printf("Error checking sample user: %v", err)
 		return
@@ -190,7 +191,7 @@ func insertSampleData() {
 		// Insert sample user
 		_, err = db.Exec(`
 			INSERT INTO users (card_number, name, password) 
-			VALUES (?, ?, ?)`,
+			VALUES ($1, $2, $3)`,
 			"1234567890", "John Doe", string(hashedPassword))
 		if err != nil {
 			log.Printf("Error inserting sample user: %v", err)
@@ -268,7 +269,7 @@ func login(c *gin.Context) {
 	var hashedPassword string
 	err := db.QueryRow(`
 		SELECT id, card_number, name, password, created_at, updated_at 
-		FROM users WHERE card_number = ?`,
+		FROM users WHERE card_number = $1`,
 		req.CardNumber).Scan(
 		&user.ID, &user.CardNumber, &user.Name, &hashedPassword,
 		&user.CreatedAt, &user.UpdatedAt)
@@ -324,7 +325,7 @@ func createTerminal(c *gin.Context) {
 
 	// Check if terminal code already exists
 	var count int
-	err := db.QueryRow("SELECT COUNT(*) FROM terminals WHERE code = ?", req.Code).Scan(&count)
+	err := db.QueryRow("SELECT COUNT(*) FROM terminals WHERE code = $1", req.Code).Scan(&count)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
 		return
@@ -336,33 +337,16 @@ func createTerminal(c *gin.Context) {
 	}
 
 	// Insert new terminal
-	result, err := db.Exec(`
-		INSERT INTO terminals (name, code, location) 
-		VALUES (?, ?, ?)`,
-		req.Name, req.Code, req.Location)
-
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create terminal"})
-		return
-	}
-
-	// Get the inserted terminal ID
-	terminalID, err := result.LastInsertId()
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get terminal ID"})
-		return
-	}
-
-	// Get the created terminal
 	var terminal Terminal
 	err = db.QueryRow(`
-		SELECT id, name, code, location, created_at 
-		FROM terminals WHERE id = ?`,
-		terminalID).Scan(
+		INSERT INTO terminals (name, code, location) 
+		VALUES ($1, $2, $3) 
+		RETURNING id, name, code, location, created_at`,
+		req.Name, req.Code, req.Location).Scan(
 		&terminal.ID, &terminal.Name, &terminal.Code, &terminal.Location, &terminal.CreatedAt)
 
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve created terminal"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create terminal"})
 		return
 	}
 
@@ -405,8 +389,7 @@ func healthCheck(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"status":    "ok",
 		"timestamp": time.Now().Format(time.RFC3339),
-		"message":   "API is running with SQLite database",
-		"database":  "SQLite",
+		"message":   "API is running",
 	})
 }
 
@@ -451,7 +434,6 @@ func main() {
 	}
 
 	log.Printf("Server starting on port %s", port)
-	log.Printf("Database: SQLite (tesgo.db)")
 	log.Printf("Available endpoints:")
 	log.Printf("  POST /login - User login")
 	log.Printf("  POST /terminals - Create terminal (requires auth)")
