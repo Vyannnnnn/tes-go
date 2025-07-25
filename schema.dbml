@@ -1,0 +1,85 @@
+// DBML Schema for Tes-Go API
+// This file contains the complete database schema as provided
+
+Table users {
+  id integer [primary key]
+  card_number varchar [unique, not null]
+  name varchar [not null]
+  password varchar [not null] // Added for authentication
+  created_at timestamp [default: `CURRENT_TIMESTAMP`]
+  updated_at timestamp [default: `CURRENT_TIMESTAMP`]
+}
+
+Table prepaid_cards {
+  id integer [primary key]
+  user_id integer [not null]
+  balance decimal [default: 0]
+  last_sync_at timestamp
+  status varchar [default: 'active']
+  created_at timestamp [default: `CURRENT_TIMESTAMP`]
+  updated_at timestamp [default: `CURRENT_TIMESTAMP`]
+}
+
+Table terminals {
+  id integer [primary key]
+  name varchar [not null]
+  code varchar [unique, not null]
+  location text
+  created_at timestamp [default: `CURRENT_TIMESTAMP`]
+}
+
+Table gates {
+  id integer [primary key]
+  terminal_id integer [not null]
+  gate_code varchar [not null]
+  is_active boolean [default: true]
+  last_online timestamp
+  created_at timestamp [default: `CURRENT_TIMESTAMP`]
+}
+
+Table transactions {
+  id integer [primary key]
+  card_id integer [not null]
+  user_id integer [not null]
+  checkin_terminal_id integer
+  checkout_terminal_id integer
+  checkin_time timestamp
+  checkout_time timestamp
+  fare decimal
+  status varchar
+  sync_status varchar
+  created_at timestamp [default: `CURRENT_TIMESTAMP`]
+}
+
+Table fares {
+  id integer [primary key]
+  from_terminal_id integer [not null]
+  to_terminal_id integer [not null]
+  fare_amount decimal [not null]
+  effective_from date [not null]
+  effective_to date
+  created_at timestamp [default: `CURRENT_TIMESTAMP`]
+}
+
+Table transaction_logs {
+  id integer [primary key]
+  gate_id integer [not null]
+  card_id integer [not null]
+  log_time timestamp [default: `CURRENT_TIMESTAMP`]
+  event_type varchar [not null]
+  raw_data text
+  is_synced boolean [default: false]
+  created_at timestamp [default: `CURRENT_TIMESTAMP`]
+}
+
+// Foreign Key References
+Ref: prepaid_cards.user_id > users.id
+Ref: transactions.card_id > prepaid_cards.id
+Ref: transactions.user_id > users.id
+Ref: transactions.checkin_terminal_id > terminals.id
+Ref: transactions.checkout_terminal_id > terminals.id
+Ref: fares.from_terminal_id > terminals.id
+Ref: fares.to_terminal_id > terminals.id
+Ref: transaction_logs.gate_id > gates.id
+Ref: transaction_logs.card_id > prepaid_cards.id
+Ref: gates.terminal_id > terminals.id

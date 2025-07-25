@@ -1,0 +1,21 @@
+# Replit Run Configuration
+run = "go run main.go"
+
+[packager]
+language = "go"
+
+[packager.features]
+packageSearch = true
+
+[languages.go]
+pattern = "**/*.go"
+
+[languages.go.languageServer]
+start = "gopls"
+
+[env]
+DATABASE_URL = "user=postgres dbname=tesgo sslmode=disable password=password host=localhost"
+
+[deployment]
+build = ["sh", "-c", "go build -o main main.go"]
+run = ["sh", "-c", "./main"]

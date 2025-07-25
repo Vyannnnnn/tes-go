@@ -1,0 +1,29 @@
+image: gitpod/workspace-postgres
+
+tasks:
+  - name: Setup Database
+    init: |
+      # Start PostgreSQL
+      pg_ctl start
+      # Create database
+      psql -c "CREATE DATABASE tesgo;"
+      echo "Database setup complete!"
+    
+  - name: Start API
+    init: |
+      # Install Go dependencies
+      go mod tidy
+      echo "Dependencies installed!"
+    command: |
+      echo "Starting API server..."
+      go run main.go
+
+ports:
+  - port: 8080
+    onOpen: open-preview
+    visibility: public
+
+vscode:
+  extensions:
+    - golang.go
+    - ms-vscode.vscode-json

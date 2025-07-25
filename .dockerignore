@@ -1,0 +1,7 @@
+# .dockerignore file untuk mengurangi ukuran build context
+*.md
+*.bat
+.git
+.gitignore
+Dockerfile
+docker-compose.yml
