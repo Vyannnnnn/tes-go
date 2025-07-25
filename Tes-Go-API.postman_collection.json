@@ -1,0 +1,425 @@
+{
+	"info": {
+		"_postman_id": "12345678-1234-1234-1234-123456789abc",
+		"name": "Tes-Go API Collection",
+		"description": "API Collection untuk testing sistem prepaid card dengan Go dan JWT authentication",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "1. Health Check",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test(\"Status code is 200\", function () {",
+							"    pm.response.to.have.status(200);",
+							"});",
+							"",
+							"pm.test(\"Response has status ok\", function () {",
+							"    var jsonData = pm.response.json();",
+							"    pm.expect(jsonData.status).to.eql(\"ok\");",
+							"});"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{base_url}}/health",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"health"
+					]
+				},
+				"description": "Endpoint untuk mengecek apakah API berjalan dengan baik"
+			},
+			"response": []
+		},
+		{
+			"name": "2. Login - Get JWT Token",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test(\"Status code is 200\", function () {",
+							"    pm.response.to.have.status(200);",
+							"});",
+							"",
+							"pm.test(\"Response has token\", function () {",
+							"    var jsonData = pm.response.json();",
+							"    pm.expect(jsonData.token).to.exist;",
+							"    // Simpan token untuk request berikutnya",
+							"    pm.environment.set(\"jwt_token\", jsonData.token);",
+							"});",
+							"",
+							"pm.test(\"User data is correct\", function () {",
+							"    var jsonData = pm.response.json();",
+							"    pm.expect(jsonData.user.card_number).to.eql(\"1234567890\");",
+							"    pm.expect(jsonData.user.name).to.eql(\"John Doe\");",
+							"});"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"card_number\": \"1234567890\",\n  \"password\": \"password123\"\n}"
+				},
+				"url": {
+					"raw": "{{base_url}}/login",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"login"
+					]
+				},
+				"description": "Login dengan card number dan password untuk mendapatkan JWT token"
+			},
+			"response": []
+		},
+		{
+			"name": "3. Create Terminal (Requires Auth)",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test(\"Status code is 201\", function () {",
+							"    pm.response.to.have.status(201);",
+							"});",
+							"",
+							"pm.test(\"Terminal created successfully\", function () {",
+							"    var jsonData = pm.response.json();",
+							"    pm.expect(jsonData.message).to.include(\"successfully\");",
+							"    pm.expect(jsonData.terminal).to.exist;",
+							"    pm.expect(jsonData.terminal.name).to.exist;",
+							"    pm.expect(jsonData.terminal.code).to.exist;",
+							"});"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"auth": {
+					"type": "bearer",
+					"bearer": [
+						{
+							"key": "token",
+							"value": "{{jwt_token}}",
+							"type": "string"
+						}
+					]
+				},
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"name\": \"Terminal Utama\",\n  \"code\": \"TRM001\",\n  \"location\": \"Jakarta Pusat\"\n}"
+				},
+				"url": {
+					"raw": "{{base_url}}/terminals",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"terminals"
+					]
+				},
+				"description": "Membuat terminal baru (memerlukan JWT token dari login)"
+			},
+			"response": []
+		},
+		{
+			"name": "4. Get All Terminals (Requires Auth)",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test(\"Status code is 200\", function () {",
+							"    pm.response.to.have.status(200);",
+							"});",
+							"",
+							"pm.test(\"Response has terminals array\", function () {",
+							"    var jsonData = pm.response.json();",
+							"    pm.expect(jsonData.terminals).to.be.an('array');",
+							"});"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"auth": {
+					"type": "bearer",
+					"bearer": [
+						{
+							"key": "token",
+							"value": "{{jwt_token}}",
+							"type": "string"
+						}
+					]
+				},
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{base_url}}/terminals",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"terminals"
+					]
+				},
+				"description": "Mengambil semua data terminal (memerlukan JWT token)"
+			},
+			"response": []
+		},
+		{
+			"name": "5. Create Another Terminal",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test(\"Status code is 201\", function () {",
+							"    pm.response.to.have.status(201);",
+							"});"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"auth": {
+					"type": "bearer",
+					"bearer": [
+						{
+							"key": "token",
+							"value": "{{jwt_token}}",
+							"type": "string"
+						}
+					]
+				},
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"name\": \"Terminal Bandara\",\n  \"code\": \"TRM002\",\n  \"location\": \"Soekarno Hatta Airport\"\n}"
+				},
+				"url": {
+					"raw": "{{base_url}}/terminals",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"terminals"
+					]
+				},
+				"description": "Membuat terminal kedua untuk testing"
+			},
+			"response": []
+		},
+		{
+			"name": "6. Login with Wrong Credentials (Error Test)",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test(\"Status code is 401\", function () {",
+							"    pm.response.to.have.status(401);",
+							"});",
+							"",
+							"pm.test(\"Error message exists\", function () {",
+							"    var jsonData = pm.response.json();",
+							"    pm.expect(jsonData.error).to.exist;",
+							"});"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"card_number\": \"wrong\",\n  \"password\": \"wrong\"\n}"
+				},
+				"url": {
+					"raw": "{{base_url}}/login",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"login"
+					]
+				},
+				"description": "Test login dengan credentials yang salah (harus return error 401)"
+			},
+			"response": []
+		},
+		{
+			"name": "7. Create Terminal Without Auth (Error Test)",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test(\"Status code is 401\", function () {",
+							"    pm.response.to.have.status(401);",
+							"});",
+							"",
+							"pm.test(\"Authorization error\", function () {",
+							"    var jsonData = pm.response.json();",
+							"    pm.expect(jsonData.error).to.include(\"Authorization\");",
+							"});"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"name\": \"Terminal Test\",\n  \"code\": \"TRM999\",\n  \"location\": \"Test Location\"\n}"
+				},
+				"url": {
+					"raw": "{{base_url}}/terminals",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"terminals"
+					]
+				},
+				"description": "Test membuat terminal tanpa authorization (harus return error 401)"
+			},
+			"response": []
+		},
+		{
+			"name": "8. Create Duplicate Terminal (Error Test)",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test(\"Status code is 409\", function () {",
+							"    pm.response.to.have.status(409);",
+							"});",
+							"",
+							"pm.test(\"Conflict error message\", function () {",
+							"    var jsonData = pm.response.json();",
+							"    pm.expect(jsonData.error).to.include(\"already exists\");",
+							"});"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"auth": {
+					"type": "bearer",
+					"bearer": [
+						{
+							"key": "token",
+							"value": "{{jwt_token}}",
+							"type": "string"
+						}
+					]
+				},
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"name\": \"Terminal Duplicate\",\n  \"code\": \"TRM001\",\n  \"location\": \"Duplicate Location\"\n}"
+				},
+				"url": {
+					"raw": "{{base_url}}/terminals",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"terminals"
+					]
+				},
+				"description": "Test membuat terminal dengan code yang sudah ada (harus return error 409)"
+			},
+			"response": []
+		}
+	],
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					""
+				]
+			}
+		},
+		{
+			"listen": "test",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					""
+				]
+			}
+		}
+	],
+	"variable": [
+		{
+			"key": "base_url",
+			"value": "http://localhost:8080",
+			"type": "string"
+		}
+	]
+}
